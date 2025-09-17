@@ -1,9 +1,0 @@
-import { View, Text } from 'react-native';
-
-export default function SearchScreen() {
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text>검색 화면</Text>
-    </View>
-  );
-}
