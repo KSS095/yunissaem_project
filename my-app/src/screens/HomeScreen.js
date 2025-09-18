@@ -1,7 +1,12 @@
-import { useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import CategoryMenu from "./CategoryMenu";
+import { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+} from "react-native";
+import CategoryMenu from "../screens/CategoryMenu";
 
 const dummyLessons = [
   { id: "1", title: "React Native 기초", category: "프로그래밍" },
@@ -10,8 +15,16 @@ const dummyLessons = [
   { id: "4", title: "주식 투자 전략", category: "금융" },
 ];
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, route }) {
   const [menuVisible, setMenuVisible] = useState(false);
+
+  // RootNavigator에서 navigation.setParams({ openMenu: true }) 호출 시 메뉴 열기
+  useEffect(() => {
+    if (route.params?.openMenu) {
+      setMenuVisible(true);
+      navigation.setParams({ openMenu: false }); // 초기화
+    }
+  }, [route.params?.openMenu]);
 
   const renderLesson = ({ item }) => (
     <TouchableOpacity
@@ -25,17 +38,6 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* 상단 바 */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setMenuVisible(true)}>
-          <Ionicons name="menu" size={28} color="black" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>홈</Text>
-        <TouchableOpacity onPress={() => navigation.navigate("Search")}>
-          <Ionicons name="search" size={28} color="black" />
-        </TouchableOpacity>
-      </View>
-
       {/* 섹션: 인기 과외 */}
       <Text style={styles.sectionTitle}>🔥 인기 과외</Text>
       <FlatList
@@ -77,16 +79,13 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", paddingTop: 40 },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    marginBottom: 20,
+  container: { flex: 1, backgroundColor: "#fff", paddingTop: 10 },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginLeft: 20,
+    marginVertical: 10,
   },
-  headerTitle: { fontSize: 20, fontWeight: "bold" },
-  sectionTitle: { fontSize: 18, fontWeight: "600", marginLeft: 20, marginVertical: 10 },
   lessonCard: {
     width: 150,
     height: 100,

@@ -21,7 +21,7 @@ const categories = [
 
 export default function CategoryMenu({ visible, onClose, navigation }) {
   const [isMounted, setIsMounted] = useState(visible);
-  const slideAnim = useRef(new Animated.Value(-250)).current;
+  const slideAnim = useRef(new Animated.Value(300)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function CategoryMenu({ visible, onClose, navigation }) {
     } else {
       Animated.parallel([
         Animated.timing(slideAnim, {
-          toValue: -250,
+          toValue: 300,
           duration: 300,
           useNativeDriver: true,
         }),
@@ -78,7 +78,7 @@ export default function CategoryMenu({ visible, onClose, navigation }) {
       >
         {/* 헤더 (타이틀 + X 버튼) */}
         <View style={styles.header}>
-          <Text style={styles.title}>카테고리 메뉴</Text>
+          <Text style={styles.title}>카테고리</Text>
           <TouchableOpacity onPress={onClose}>
             <Ionicons name="close" size={28} color="black" />
           </TouchableOpacity>
@@ -111,8 +111,8 @@ const styles = StyleSheet.create({
   drawer: {
     position: "absolute",
     top: 0,
-    left: 0,
-    width: "40%", // ✅ 화면 40%
+    right: 0,
+    width: "50%", // 화면 50%
     height: "100%",
     backgroundColor: "#fff",
     padding: 20,

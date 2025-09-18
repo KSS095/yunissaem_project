@@ -9,15 +9,6 @@ React Native (Expo) + Docker (Nginx) 기본 구조 연습용 프로젝트
 (`npx create-expo-app@latest my-app --template blank` 로 하면 밑의 Expo 캐시 초기화 안봐도 됨<br>
 -> 기본 expo-router 템플릿 안쓰겠다는 뜻)
 
-`cd my-app`<br>`npx expo start` (QR 나오면 찍기)<br>
-단, 실행 중인 컴퓨터와 핸드폰이 연결된 와이파이가 다르다면
-`npx expo start --tunnel`
-
-웹에서도 실행하고 싶다?<br>
-`npx expo install react-dom react-native-web`<br>
-`npx expo start --web`<br>
-근데 이거 안해도 `npx expo start` 한 다음 생성되는 localhost 주소 누르면 되긴 함
-
 ---
 ## Expo 캐시 초기화
 
@@ -39,6 +30,7 @@ iOS: Expo Go 앱 삭제 후 다시 설치
 3) 다시 실행<br>
 `cd my-app`<br>
 `npx expo start`
+
 ---
 
 ### 2. 필수 패키지 설치
@@ -46,12 +38,27 @@ iOS: Expo Go 앱 삭제 후 다시 설치
 
 `npx expo install react-native-screens react-native-safe-area-context`
 
+---
 
 ### 3. 탭 네비게이터 설치
 `npm install @react-navigation/bottom-tabs`
 `npx expo install react-native-gesture-handler react-native-reanimated`
 
 (`npx create-expo-app@latest my-app`로 프로젝트를 만들었고, <br>내가 만든 화면들 띄우려면 기본 템플릿 (add폴더) 삭제해야함)
+
+---
+
+### 4. 실행
+`cd my-app`<br>`npx expo start` (QR 나오면 찍기)<br>
+단, 실행 중인 컴퓨터와 핸드폰이 연결된 와이파이가 다르다면
+`npx expo start --tunnel`
+
+웹에서도 실행하고 싶다?<br>
+`npx expo install react-dom react-native-web`<br>
+`npx expo start --web`<br>
+근데 이거 안해도 `npx expo start` 한 다음 생성되는 localhost 주소 누르면 되긴 함
+
+---
 
 ## <현재 폴더 구조>
 ```

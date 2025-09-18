@@ -1,78 +1,8 @@
-// import { NavigationContainer } from "@react-navigation/native";
-// import { createNativeStackNavigator } from "@react-navigation/native-stack";
-
-// // Screens
-// import LoginScreen from "../screens/LoginScreen";
-// import RegisterScreen from "../screens/RegisterScreen";
-// import HomeScreen from "../screens/HomeScreen";
-
-// // import CategoryMenuScreen from "../screens/CategoryMenuScreen";
-// import CategoryLessonScreen from "../screens/CategoryLessonScreen";
-
-// import LessonCreateScreen from "../screens/LessonCreateScreen";
-// import LessonDetailScreen from "../screens/LessonDetailScreen";
-
-// import AIChatbotScreen from "../screens/AIChatbotScreen";
-// import ChatListScreen from "../screens/ChatListScreen";
-// import ChatScreen from "../screens/ChatScreen";
-
-// import ReviewWriteScreen from "../screens/ReviewWriteScreen";
-// import MyPageScreen from "../screens/MyPageScreen";
-// import IntroScreen from "../screens/IntroScreen";
-// import SearchScreen from "../screens/SearchScreen";
-
-// // import MyLessonsOngoingScreen from "../screens/MyLessonsOngoingScreen";
-// // import MyLessonsCompletedScreen from "../screens/MyLessonsCompletedScreen";
-// // import MyLessonsFavoriteScreen from "../screens/MyLessonsFavoriteScreen";
-// // import MyLessonsCreatedScreen from "../screens/MyLessonsCreatedScreen";
-// // import MyLessonsPastCreatedScreen from "../screens/MyLessonsPastCreatedScreen";
-
-// const Stack = createNativeStackNavigator();
-
-// export default function RootNavigator() {
-//   return (
-//     <NavigationContainer>
-//       <Stack.Navigator initialRouteName="Login">
-//         {/* Auth */}
-//         <Stack.Screen name="Login" component={LoginScreen} />
-//         <Stack.Screen name="Register" component={RegisterScreen} />
-
-//         {/* Main */}
-//         <Stack.Screen name="Home" component={HomeScreen} />
-//         {/* <Stack.Screen name="CategoryMenu" component={CategoryMenuScreen} /> */}
-//         <Stack.Screen name="CategoryLesson" component={CategoryLessonScreen} />
-
-//         {/* Lessons */}
-//         <Stack.Screen name="LessonCreate" component={LessonCreateScreen} />
-//         <Stack.Screen name="LessonDetail" component={LessonDetailScreen} />
-
-//         {/* Chat */}
-//         <Stack.Screen name="AIChatbot" component={AIChatbotScreen} />
-//         <Stack.Screen name="ChatList" component={ChatListScreen} />
-//         <Stack.Screen name="Chat" component={ChatScreen} />
-
-//         {/* Review */}
-//         <Stack.Screen name="ReviewWrite" component={ReviewWriteScreen} />
-
-//         {/* User */}
-//         <Stack.Screen name="MyPage" component={MyPageScreen} />
-//         <Stack.Screen name="Intro" component={IntroScreen} />
-//         <Stack.Screen name="Search" component={SearchScreen} />
-
-//         {/* My Lessons */}
-//         {/* <Stack.Screen name="MyLessonsOngoing" component={MyLessonsOngoingScreen} />
-//         <Stack.Screen name="MyLessonsCompleted" component={MyLessonsCompletedScreen} />
-//         <Stack.Screen name="MyLessonsFavorite" component={MyLessonsFavoriteScreen} />
-//         <Stack.Screen name="MyLessonsCreated" component={MyLessonsCreatedScreen} />
-//         <Stack.Screen name="MyLessonsPastCreated" component={MyLessonsPastCreatedScreen} /> */}
-//       </Stack.Navigator>
-//     </NavigationContainer>
-//   );
-// }
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons"; // 아이콘 패키지
+import { TouchableOpacity } from "react-native";
 
 // Screens
 import LoginScreen from "../screens/LoginScreen";
@@ -111,7 +41,29 @@ function MainTabs() {
         tabBarInactiveTintColor: "gray",
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: "홈" }} />
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={({ navigation }) => ({
+          title: "홈",
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => navigation.navigate("Search")}
+              style={{ marginLeft: 15 }}
+            >
+              <Ionicons name="search" size={24} color="black" />
+            </TouchableOpacity>
+          ),
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => navigation.setParams({ openMenu: true })}
+              style={{ marginRight: 15 }}
+            >
+              <Ionicons name="menu" size={24} color="black" />
+            </TouchableOpacity>
+          ),
+        })}
+      />
       <Tab.Screen
         name="LessonCreate"
         component={LessonCreateScreen}
@@ -156,8 +108,6 @@ export default function RootNavigator() {
         <Stack.Screen name="ReviewWrite" component={ReviewWriteScreen} />
         <Stack.Screen name="Intro" component={IntroScreen} />
         <Stack.Screen name="Search" component={SearchScreen} />
-
-
       </Stack.Navigator>
     </NavigationContainer>
   );
