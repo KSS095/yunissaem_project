@@ -1,105 +1,26 @@
-// import { useState } from "react";
-// import { View, Text, FlatList, TouchableOpacity, StyleSheet, Switch } from "react-native";
+// 카테고리별 과외 목록 화면
+// - 카테고리별 과외 카드 리스트 표시
+// - 검색, 정렬, 찜(좋아요), 토글 필터, Toast 알림 기능 구현
+// - 뒤로가기(헤더/하드웨어) 1회: 화면 초기화 → 2회: 이전 화면
 
-// const dummyLessons = [
-//   { id: "1", title: "피아노 기초", category: "음악", available: true },
-//   { id: "2", title: "헬스 PT", category: "운동", available: false },
-//   { id: "3", title: "주식 투자", category: "금융", available: true },
-//   { id: "4", title: "React Native 입문", category: "프로그래밍", available: true },
-// ];
-
-// export default function CategoryLessonScreen({ navigation, route }) {
-//   const { category } = route.params || { category: "전체" };
-//   const [showUnavailable, setShowUnavailable] = useState(false);
-//   const [sortOption, setSortOption] = useState("인기순");
-
-//   // 필터 + 정렬 적용
-//   let filteredLessons = dummyLessons.filter(
-//     (l) =>
-//       (category === "전체" || l.category === category) &&
-//       (showUnavailable || l.available)
-//   );
-
-//   if (sortOption === "최신순") {
-//     filteredLessons = [...filteredLessons].reverse(); // 임시: 뒤집기
-//   } else if (sortOption === "리뷰 많은 순") {
-//     filteredLessons = [...filteredLessons]; // 나중에 리뷰 기준 정렬
-//   }
-
-//   return (
-//     <View style={styles.container}>
-//       <Text style={styles.title}>{category} 과외 목록</Text>
-
-//       {/* 정렬 옵션 */}
-//       <View style={styles.sortRow}>
-//         <Text>정렬: {sortOption}</Text>
-//         <TouchableOpacity onPress={() => setSortOption("인기순")}>
-//           <Text style={styles.sortBtn}>인기순</Text>
-//         </TouchableOpacity>
-//         <TouchableOpacity onPress={() => setSortOption("최신순")}>
-//           <Text style={styles.sortBtn}>최신순</Text>
-//         </TouchableOpacity>
-//         <TouchableOpacity onPress={() => setSortOption("리뷰 많은 순")}>
-//           <Text style={styles.sortBtn}>리뷰 많은 순</Text>
-//         </TouchableOpacity>
-//       </View>
-
-//       {/* 토글 */}
-//       <View style={styles.switchRow}>
-//         <Text>신청 불가 항목 보기</Text>
-//         <Switch value={showUnavailable} onValueChange={setShowUnavailable} />
-//       </View>
-
-//       {/* 과외 목록 */}
-//       <FlatList
-//         data={filteredLessons}
-//         keyExtractor={(item) => item.id}
-//         renderItem={({ item }) => (
-//           <TouchableOpacity
-//             style={[
-//               styles.lessonItem,
-//               !item.available && { backgroundColor: "#eee" },
-//             ]}
-//             onPress={() => navigation.navigate("LessonDetail", { lesson: item })}
-//           >
-//             <Text>{item.title}</Text>
-//             {!item.available && <Text style={{ color: "red" }}>신청 불가</Text>}
-//           </TouchableOpacity>
-//         )}
-//       />
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: { flex: 1, padding: 16, backgroundColor: "#fff" },
-//   title: { fontSize: 20, fontWeight: "bold", marginBottom: 20 },
-//   sortRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
-//   sortBtn: { marginLeft: 10, color: "blue" },
-//   switchRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 20 },
-//   lessonItem: {
-//     padding: 12,
-//     borderWidth: 1,
-//     borderColor: "#ccc",
-//     borderRadius: 6,
-//     marginBottom: 10,
-//   },
-// });
-
-
-
-
-
-import { useState } from "react";
+import React, { useState, useLayoutEffect, useRef } from "react";
 import {
   View,
   Text,
   FlatList,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   Switch,
   Image,
+  TextInput,
+  Keyboard,
+  BackHandler,            // ✅ 하드웨어 뒤로가기용
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Toast from "react-native-toast-message";
+import { Ionicons } from "@expo/vector-icons";
 
 const dummyLessons = [
   // 🎵 음악
@@ -278,117 +199,508 @@ const dummyLessons = [
   },
 ];
 
-
 export default function CategoryLessonScreen({ navigation, route }) {
   const { category } = route.params || { category: "전체" };
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [sortOption, setSortOption] = useState("인기순");
-  const [expandedId, setExpandedId] = useState(null); // ✅ 펼쳐진 카드 id 저장
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState([]);
 
-  // 필터링
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchInputRef = useRef(null);
+  const firstRenderRef = useRef(true);
+
+  const keyboardVisibleRef = useRef(false);
+  const keyboardHeightRef = useRef(0);
+  const lastToastRef = useRef(null);
+
+  // ✅ “맨 처음 상태”로 되돌리는 함수
+  const resetToPristine = () => {
+    setSearchQuery("");
+    setSearchTerm("");
+    setSearchFocused(false);
+    setDropdownVisible(false);
+    setShowUnavailable(false);
+    setSortOption("인기순");
+    Keyboard.dismiss();
+    Toast.hide();
+  };
+
+  // ✅ 현재 상태가 “맨 처음 상태”인지 판별
+  const isPristine = () =>
+    searchQuery === "" &&
+    searchTerm === "" &&
+    !searchFocused &&
+    !dropdownVisible &&
+    showUnavailable === false &&
+    sortOption === "인기순";
+
+  // 🔔 Toast (키보드 따라 위치 조정)
+  const showSmartToast = (opts) => {
+    const offset = keyboardVisibleRef.current
+      ? keyboardHeightRef.current + 60
+      : 60;
+
+    const config = {
+      position: "bottom",
+      ...opts,
+      bottomOffset: offset,
+      visibilityTime: 2500,
+      onPress: () => {
+        Toast.hide();
+        lastToastRef.current = null;
+      },
+      onHide: () => {
+        // ⛔ 여기서 null로 초기화하지 않음 (키보드 이동용 정보 유지)
+        // 단, 일정 시간 후 완전 초기화 (재등장 방지)
+        setTimeout(() => {
+          lastToastRef.current = null;
+        }, 2700);
+      },
+    };
+
+    Toast.hide();
+    requestAnimationFrame(() => {
+      Toast.show(config);
+      lastToastRef.current = config; // ✅ 위치 업데이트용 정보 저장
+    });
+  };
+
+  // 페이지 들어올 때마다 (단, 첫 진입일 때만 검색 초기화)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (firstRenderRef.current) {
+        setSearchQuery("");
+        setSearchTerm("");
+        setSearchFocused(false);
+        firstRenderRef.current = false; // ✅ 이후에는 초기화 안 함
+      }
+
+      // 포커스 해제 시점에 다시 true로 만들 필요 없음
+      // (다시 이 화면이 완전히 unmount될 때 초기화)
+    }, [])
+  );
+
+  // ✅ 화면이 완전히 떠날 때 다시 초기화
+  React.useEffect(() => {
+    const cleanup = navigation.addListener("beforeRemove", () => {
+      firstRenderRef.current = true; // 완전히 나갈 때 true로 복귀
+    });
+
+    return cleanup;
+  }, [navigation]);
+
+  // ⌨️ 키보드 이벤트 (Toast 위치용)
+  React.useEffect(() => {
+    const onShow = (e) => {
+      keyboardVisibleRef.current = true;
+      keyboardHeightRef.current = e?.endCoordinates?.height ?? 0;
+
+      // 🔁 토스트가 떠 있으면 다시 띄우기
+      if (lastToastRef.current) {
+        const updated = {
+          ...lastToastRef.current,
+          bottomOffset: keyboardHeightRef.current + 60,
+        };
+        Toast.hide();
+        requestAnimationFrame(() => {
+          Toast.show(updated);
+          lastToastRef.current = updated;
+        });
+      }
+    };
+
+    const onHide = () => {
+      keyboardVisibleRef.current = false;
+
+      if (lastToastRef.current) {
+        const updated = { ...lastToastRef.current, bottomOffset: 60 };
+        Toast.hide();
+        requestAnimationFrame(() => {
+          Toast.show(updated);
+          lastToastRef.current = updated;
+        });
+      }
+    };
+
+    const s1 = Keyboard.addListener("keyboardDidShow", onShow);
+    const s2 = Keyboard.addListener("keyboardDidHide", onHide);
+    return () => {
+      s1.remove();
+      s2.remove();
+    };
+  }, []);
+
+
+  // ✅ 헤더 뒤로가기 가로채기 (초기화 1회 → 뒤로가기)
+  React.useEffect(() => {
+    const unsub = navigation.addListener("beforeRemove", (e) => {
+      // 항상 떠있는 토스트는 닫기
+      Toast.hide();
+      lastToastRef.current = null;
+
+      // 초기 상태가 아니라면: 네비게이션 막고 화면만 초기화
+      if (!isPristine()) {
+        e.preventDefault();
+        resetToPristine();
+        return;
+      }
+
+      // 초기 상태면: 그냥 나감 (Toast 이미 닫힘)
+    });
+
+    return unsub;
+  }, [
+    navigation,
+    searchQuery,
+    searchTerm,
+    searchFocused,
+    dropdownVisible,
+    showUnavailable,
+    sortOption,
+  ]);
+
+
+    // ✅ 안드로이드 하드웨어 뒤로가기 (동일한 정책)
+    useFocusEffect(
+      React.useCallback(() => {
+        const onBack = () => {
+          if (!isPristine()) {
+            resetToPristine();
+            return true; // 뒤로가기 소비(이전 화면으로 안 나감)
+          }
+          return false; // 기본 동작(이전 화면)
+        };
+
+        const sub = BackHandler.addEventListener("hardwareBackPress", onBack);
+        return () => sub.remove();
+      }, [
+        searchQuery,
+        searchTerm,
+        searchFocused,
+        dropdownVisible,
+        showUnavailable,
+        sortOption,
+      ])
+    );
+
+  // 네비게이션 헤더 타이틀
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: `${category} 과외 목록`,
+    });
+  }, [navigation, category]);
+
+  // 추천 검색 데이터 (실시간)
+  const suggestions =
+    searchQuery.length > 0
+      ? dummyLessons.filter(
+          (l) =>
+            (category === "전체" || l.category === category) &&
+            l.title.includes(searchQuery)
+        )
+      : [];
+
+  // 찜 토글
+  const toggleFavorite = (id) => {
+    setFavoriteIds((prev) =>
+      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
+    );
+  };
+
+  // 리스트 데이터
   let filteredLessons = dummyLessons.filter(
     (l) =>
       (category === "전체" || l.category === category) &&
-      (showUnavailable || l.available)
+      (showUnavailable || l.available) &&
+      (searchTerm === "" || l.title.includes(searchTerm))
   );
 
-  // 정렬
   if (sortOption === "최신순") {
     filteredLessons = [...filteredLessons].reverse();
   } else if (sortOption === "리뷰 많은 순") {
-    filteredLessons = [...filteredLessons]; // 나중에 리뷰 수 기준 정렬
+    filteredLessons = [...filteredLessons];
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{category} 과외 목록</Text>
+    <SafeAreaView style={styles.container} edges={["bottom", "left", "right"]}>
+      {/* 검색바 */}
+      <View style={styles.searchWrapper}>
+        <TextInput
+          ref={searchInputRef}
+          style={styles.searchBar}
+          placeholder="과외 검색하기"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onFocus={() => {
+            setSearchFocused(true);
+            Toast.hide(); // 포커스 시 이전 토스트 강제 종료
+          }}
+          onBlur={() => {
+            setSearchFocused(false);
+            setSearchTerm(searchQuery); // focus 해제 시 검색 확정
+          }}
+          onSubmitEditing={() => {
+            Keyboard.dismiss();
+            setSearchTerm(searchQuery); // 완료 버튼 시 검색 확정
+          }}
+        />
 
-      {/* 정렬 옵션 */}
-      <View style={styles.sortRow}>
-        {["인기순", "최신순", "리뷰 많은 순"].map((option) => (
-          <TouchableOpacity key={option} onPress={() => setSortOption(option)}>
-            <Text
-              style={[
-                styles.sortBtn,
-                sortOption === option && styles.sortBtnActive, // ✅ 선택된 옵션 강조
-              ]}
-            >
-              {option}
-            </Text>
+        {/* 오른쪽 아이콘 (돋보기 / X) */}
+        {searchQuery === "" ? (
+          <TouchableOpacity
+            onPress={() => searchInputRef.current?.focus()}
+            style={styles.iconBtn}
+          >
+            <Ionicons name="search" size={20} color="#888" />
           </TouchableOpacity>
-        ))}
-      </View>
+        ) : (
+          <TouchableOpacity
+            onPress={() => {
+              setSearchQuery("");
+              setSearchTerm("");
+              setTimeout(() => searchInputRef.current?.focus(), 50);
+            }}
+            style={styles.iconBtn}
+          >
+            <Ionicons name="close" size={20} color="#888" />
+          </TouchableOpacity>
+        )}
 
-      {/* 토글 */}
-      <View style={styles.switchRow}>
-        <Text>신청 불가 항목 보기</Text>
-        <Switch value={showUnavailable} onValueChange={setShowUnavailable} />
-      </View>
+        {/* 추천 검색 박스 */}
+        {searchFocused && suggestions.length > 0 && (
+          <View style={styles.suggestionBox}>
+            {suggestions.slice(0, 10).map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.suggestionItem,
+                  !item.available && styles.suggestionDisabled,
+                ]}
+                onPress={() => {
+                  // 리스트 아이템 '직접 터치'했을 때만 토스트/확정
+                  if (!item.available) {
+                    showSmartToast({
+                      type: "error",
+                      text1: "이 강의는 현재 마감되었습니다.",
+                    });
 
-      {/* 카드형 리스트 */}
-      <FlatList
-        data={filteredLessons}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          const isExpanded = expandedId === item.id; // 현재 펼쳐진 카드인지 체크
+                    // ✅ 토스트를 표시하고 나면 즉시 ref 초기화 (자동 반복 방지)
+                    setTimeout(() => {
+                      lastToastRef.current = null;
+                    }, 2500); // 토스트 표시 시간(visibilityTime)과 동일
 
-          return (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => navigation.navigate("LessonDetail", { lesson: item })}
-            >
-              {/* 썸네일 */}
-              <Image source={{ uri: item.thumbnail }} style={styles.thumbnail} />
-
-              {/* 내용 */}
-              <View style={styles.cardContent}>
-                <Text style={styles.lessonTitle}>{item.title}</Text>
-                
-                {/* 설명 */}
+                    return;
+                  }
+                  setSearchQuery(item.title);
+                  setSearchTerm(item.title);
+                  setSearchFocused(false);
+                  Keyboard.dismiss();
+                }}
+              >
                 <Text
-                  style={styles.description}
-                  numberOfLines={isExpanded ? undefined : 2} // ✅ 펼쳐진 경우 전체, 아니면 2줄
-                  ellipsizeMode="tail"
-                  onPress={(e) => {
-                    e.stopPropagation(); // 카드 클릭 이벤트 막음
-                    setExpandedId(isExpanded ? null : item.id);
+                  style={[
+                    styles.suggestionText,
+                    !item.available && styles.suggestionTextDisabled,
+                  ]}
+                >
+                  {item.title}
+                  {!item.available && " (마감)"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* 옵션 영역 */}
+      <View style={styles.optionRow}>
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>신청 불가 항목 보기</Text>
+          <Switch value={showUnavailable} onValueChange={setShowUnavailable} />
+        </View>
+
+        <View style={styles.dropdown}>
+          <TouchableOpacity onPress={() => setDropdownVisible((p) => !p)}>
+            <Text style={styles.dropdownSelected}>{sortOption} ▼</Text>
+          </TouchableOpacity>
+
+          {dropdownVisible && (
+            <View style={styles.dropdownMenu}>
+              {["인기순", "최신순", "리뷰 많은 순"].map((opt) => (
+                <TouchableOpacity
+                  key={opt}
+                  onPress={() => {
+                    setSortOption(opt);
+                    setDropdownVisible(false);
                   }}
                 >
-                  {item.description}
-                </Text>
+                  <Text
+                    style={[
+                      styles.dropdownItem,
+                      sortOption === opt && styles.dropdownActive,
+                    ]}
+                  >
+                    {opt}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      </View>
 
-                <View style={styles.footerRow}>
-                  <View>
-                    <Text style={styles.tutor}>{item.tutor}</Text>
-                    <Text style={styles.capacity}>
-                      {item.enrolled}/{item.capacity}
+      {/* 카드 리스트 */}
+      {filteredLessons.length === 0 ? (
+        <Pressable
+          style={styles.noResultBox}
+          onPress={() => {
+            Toast.hide();
+            const input = searchInputRef.current;
+            if (!input) return;
+            input.blur();
+            requestAnimationFrame(() => input.focus());
+          }}
+          onStartShouldSetResponder={() => true}
+        >
+          <Text style={styles.noResultText}>검색 결과가 없습니다 😢</Text>
+        </Pressable>
+      ) : (
+        <FlatList
+          data={filteredLessons}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: 80 }}
+          renderItem={({ item }) => {
+            const isFavorite = favoriteIds.includes(item.id);
+
+            return (
+              <TouchableOpacity
+                style={styles.card}
+                onPress={() =>
+                  !dropdownVisible &&
+                  navigation.navigate("LessonDetail", { lesson: item })
+                }
+                activeOpacity={0.8}
+              >
+                {/* 카드 본체 (마감 시 전체 반투명 처리) */}
+                <View
+                  style={[styles.cardInner, !item.available && styles.cardUnavailable]}
+                >
+                  <Image
+                    source={{ uri: item.thumbnail }}
+                    style={styles.thumbnail}
+                  />
+
+                  <View style={styles.cardContent}>
+                    <Text style={styles.lessonTitle}>{item.title}</Text>
+
+                    <Text style={styles.description} numberOfLines={2}>
+                      {item.description}
                     </Text>
+
+                    <View style={styles.footerRow}>
+                      <View>
+                        <Text style={styles.tutor}>{item.tutor}</Text>
+                        <Text style={styles.capacity}>
+                          {item.enrolled}/{item.capacity}
+                        </Text>
+                      </View>
+
+                      {/* 마감이 아닐 때만 찜 버튼 노출 */}
+                      {item.available && (
+                        <TouchableOpacity onPress={() => toggleFavorite(item.id)}>
+                          <Ionicons
+                            name={isFavorite ? "heart" : "heart-outline"}
+                            size={26}
+                            color={isFavorite ? "tomato" : "#aaa"}
+                            style={styles.heartIcon}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
-                  {!item.available && (
-                    <Text style={styles.unavailable}>신청 불가</Text>
-                  )}
                 </View>
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-      />
-    </View>
+
+                {/* 신청 불가 라벨 (밝기 유지) */}
+                {!item.available && (
+                  <Text style={styles.unavailableTag}>신청 불가</Text>
+                )}
+              </TouchableOpacity>
+            );
+          }}
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: "#fff" },
-  title: { fontSize: 20, fontWeight: "bold", marginBottom: 16 },
-  sortRow: { flexDirection: "row", alignItems: "center"},
-  sortBtn: { marginLeft: 10, color: "blue" },
-  switchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    marginLeft: 10,
-    marginBottom: 16,
+  searchWrapper: { position: "relative", marginBottom: 12 },
+  searchBar: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingRight: 32,
   },
+  iconBtn: { position: "absolute", right: 8, top: "50%", transform: [{ translateY: -10 }] },
+
+  suggestionBox: {
+    position: "absolute",
+    top: 44,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 6,
+    zIndex: 20,
+    elevation: 3,
+  },
+  suggestionItem: { paddingVertical: 8, paddingHorizontal: 12 },
+  suggestionText: { fontSize: 14, color: "#333" },
+  suggestionDisabled: { backgroundColor: "#f5f5f5" },
+  suggestionTextDisabled: { color: "#aaa", fontStyle: "italic" },
+
+  noResultBox: {
+    flex: 1,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+  noResultText: { fontSize: 15, color: "#777" },
+
+  optionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  switchRow: { flexDirection: "row", alignItems: "center" },
+  switchLabel: { marginRight: 8 },
+
+  dropdown: { position: "relative" },
+  dropdownSelected: { fontSize: 14, color: "blue" },
+  dropdownMenu: {
+    position: "absolute",
+    top: 24,
+    right: 0,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 6,
+    minWidth: 120,
+    zIndex: 10,
+    elevation: 3,
+  },
+  dropdownItem: { padding: 8, fontSize: 14, color: "#333" },
+  dropdownActive: { fontWeight: "bold", color: "tomato" },
+
   card: {
     backgroundColor: "#fff",
     borderRadius: 10,
@@ -400,11 +712,16 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 5,
+    position: "relative",
   },
-  thumbnail: { width: "100%", height: 100 },
-  cardContent: { padding: 12 },
-  lessonTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 6 },
-  description: { fontSize: 13, color: "#555", marginBottom: 10, lineHeight: 18 },
+  cardInner: { flexDirection: "row", alignItems: "center", padding: 8, minHeight: 110 },
+  cardUnavailable: { opacity: 0.4 },
+  thumbnail: { width: 90, height: 90, borderRadius: 8, marginRight: 12 },
+
+  cardContent: { flex: 1, justifyContent: "space-between" },
+  lessonTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 4 },
+  description: { fontSize: 13, color: "#555", marginBottom: 8, lineHeight: 18 },
+
   footerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -412,5 +729,21 @@ const styles = StyleSheet.create({
   },
   tutor: { fontSize: 13, fontWeight: "500" },
   capacity: { fontSize: 12, color: "gray" },
-  unavailable: { fontSize: 12, color: "red", fontWeight: "bold" },
+
+  unavailableTag: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "tomato",
+    color: "#fff",
+    fontSize: 11,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    opacity: 1,
+    fontWeight: "bold",
+    zIndex: 10,
+  },
+
+  heartIcon: { marginLeft: 8, marginBottom: 2 },
 });
