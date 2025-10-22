@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 
 // 여기 바꿀 예정
+// 사실 안바꿀 예정
 
 const popularSearches = ["React", "피아노", "헬스", "영어"];
 const recentSearches = ["주식", "프로그래밍"];
